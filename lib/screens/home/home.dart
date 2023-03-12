@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Color? backgroundColor;
   bool isSearching = false;
   bool showMap = false;
-  GoogleMapController? mapController; //contrller for Google map
+  GoogleMapController? mapController; 
   CameraPosition? cameraPosition;
   LatLng startLocation = LatLng(-26.195246, 28.034088);
   String location = "Search Location";
@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   init() async {
     if (showWeatherBySearch) {
-      //show weather by current location
+      //show weather by search location
       setState(() {
         position = searchLatLng;
       });
@@ -54,8 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
       //show weather by current location
       position = await getCurrentPosition(context);
     }
-
-    print('position after operations: ${position.latitude}');
 
     if (position != null) {
       currentAddress = await getAddressFromLatLng(position.latitude, position.longitude);
@@ -207,16 +205,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     color: backgroundColor,
                                     height: MediaQuery.of(context).size.height / 2,
                                     child: GoogleMap(
-                                      //Map widget from google_maps_flutter package
-                                      zoomGesturesEnabled: true, //enable Zoom in, out on map
+                                      zoomGesturesEnabled: true, 
                                       initialCameraPosition: CameraPosition(
-                                        //innital position in map
-                                        target: startLocation, //initial position
-                                        zoom: 14.0, //initial zoom level
+                                        target: startLocation,
+                                        zoom: 14.0, 
                                       ),
-                                      mapType: MapType.normal, //map type
+                                      mapType: MapType.normal, 
                                       onMapCreated: (controller) {
-                                        //method called when map is created
                                         setState(() {
                                           mapController = controller;
                                         });
@@ -245,9 +240,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             lat: -26.195246,
                             lng: 28.034088,
                           )
-                          // components: [
-                          //   Component(Component.country, 'zim'),
-                          // ],
                           );
 
                       if (place != null) {
@@ -255,7 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           location = place.description.toString();
                         });
 
-                        //form google_maps_webservice package
                         final plist = GoogleMapsPlaces(
                           apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'],
                           apiHeaders: await GoogleApiHeaders().getHeaders(),
