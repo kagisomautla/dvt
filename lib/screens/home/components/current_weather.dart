@@ -1,5 +1,4 @@
 import 'package:dvt/controls/text.dart';
-import 'package:dvt/models/stocks.dart';
 import 'package:flutter/material.dart';
 
 class CurrentWeatherComponent extends StatelessWidget {
