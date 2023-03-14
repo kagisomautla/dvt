@@ -1,8 +1,14 @@
-import 'dart:convert' as convert;
+import 'dart:convert';
 import 'package:dvt/apis/get_weather.dart';
+import 'package:dvt/controls/drawer.dart';
 import 'package:dvt/controls/text.dart';
-import 'package:dvt/models/stocks.dart';
-import 'package:dvt/screens/home/components/current_weather.dart';
+import 'package:dvt/helpers/local_storage/delete.dart';
+import 'package:dvt/helpers/local_storage/fetch.dart';
+import 'package:dvt/helpers/local_storage/send.dart';
+import 'package:dvt/models/locations.dart';
+import 'package:dvt/providers/locations.dart';
+import 'package:dvt/providers/system.dart';
+import 'package:dvt/screens/home/components/weather.dart';
 import 'package:dvt/screens/home/components/forecast.dart';
 import 'package:dvt/utils/constants.dart';
 import 'package:dvt/utils/functions.dart';
@@ -10,10 +16,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_hoc081098/flutter_google_places_hoc081098.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_api_headers/google_api_headers.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_webservice/places.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -21,7 +30,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String? currentAddress;
+  String? address;
   bool loadingHomePage = true;
   dynamic currentWeather;
   List<dynamic>? forecast;
@@ -29,22 +38,58 @@ class _HomeScreenState extends State<HomeScreen> {
   Color? backgroundColor;
   bool isSearching = false;
   bool showMap = false;
-  GoogleMapController? mapController; 
+  GoogleMapController? mapController;
   CameraPosition? cameraPosition;
   LatLng startLocation = LatLng(-26.195246, 28.034088);
   String location = "Search Location";
   bool showWeatherBySearch = false;
   LatLng? searchLatLng;
-  dynamic position;
+  LatLng? position;
   bool loadingData = false;
+  SharedPreferences? sharedPreferences;
+  List<dynamic> listOfFavoriteLocations = [];
+  Icon? weatherIcon;
+  LocationsModel? selectedLocationData;
 
   @override
   void initState() {
+    isOnline(context: context);
     init();
     super.initState();
   }
 
   init() async {
+    // deleteAll();
+    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
+    SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
+    dynamic favoriteLocationsFromStorage = await fetchFavoriteLocations();
+    dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
+    DateTime now = DateTime.now();
+    final String lastWeatherUpdate = DateFormat('MMM d, H:mm a').format(now);
+
+    print('favoriteLocationsFromStorage: $favoriteLocationsFromStorage');
+
+    //do this is user does not have a
+    if (systemProvider.isOnline == false) {
+      dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
+      if (offlineWeatherFromStorage != null) {
+        dynamic decodedData = json.decode(offlineWeatherFromStorage);
+        setState(() {
+          selectedLocationData = LocationsModel(
+            location: LatLng(decodedData['location'][0], decodedData['location'][1]),
+            address: decodedData['address'],
+            weather: decodedData['weather'],
+            timeOfLastUpdate: decodedData['time_of_last_update'],
+          );
+        });
+      }
+      setState(() {
+        loadingHomePage = false;
+        loadingData = false;
+      });
+      return;
+    }
+
     if (showWeatherBySearch) {
       //show weather by search location
       setState(() {
@@ -55,16 +100,32 @@ class _HomeScreenState extends State<HomeScreen> {
       position = await getCurrentPosition(context);
     }
 
+    if (favoriteLocationsFromStorage != null) {
+      setState(() {
+        List<dynamic> decodedLocations = json.decode(favoriteLocationsFromStorage);
+        locationsProvider.favoriteLocations = decodedLocations
+            .map((e) => LocationsModel(
+                  location: LatLng(e['location'][0], e['location'][1]),
+                  address: e['address'],
+                ))
+            .toList();
+      });
+    }
+
     if (position != null) {
-      currentAddress = await getAddressFromLatLng(position.latitude, position.longitude);
+      address = await getAddressFromLatLng(position!.latitude, position!.longitude);
       await getWeather(
         context: context,
         type: 'weather',
-        lat: position.latitude.toString(),
-        lon: position.longitude.toString(),
+        lat: position!.latitude.toString(),
+        lon: position!.longitude.toString(),
       ).then((response) async {
         if (response.statusCode == 200) {
-          currentWeather = convert.jsonDecode(response.body) as Map<String, dynamic>;
+          currentWeather = json.decode(response.body) as Map<String, dynamic>;
+          setState(() {
+            selectedLocationData = LocationsModel(location: position, address: address, timeOfLastUpdate: lastWeatherUpdate, weather: currentWeather);
+          });
+          storeOfflineWeather(value: selectedLocationData!);
         } else {
           showSnackBar(context: context, message: 'Failed to load weather... ${response.statusCode}.');
         }
@@ -72,17 +133,24 @@ class _HomeScreenState extends State<HomeScreen> {
       await getWeather(
         context: context,
         type: 'forecast',
-        lat: position.latitude.toString(),
-        lon: position.longitude.toString(),
+        lat: position!.latitude.toString(),
+        lon: position!.longitude.toString(),
       ).then((response) async {
         if (response.statusCode == 200) {
-          dynamic body = convert.jsonDecode(response.body) as Map<String, dynamic>;
+          dynamic body = json.decode(response.body) as Map<String, dynamic>;
           List<dynamic> listOfForecast = body['list'];
           forecast = extractDaysOfTheWeekData(listOfForecast);
         } else {
           showSnackBar(context: context, message: 'Failed to load forecast... ${response.statusCode}.');
         }
       });
+
+      setState(() {
+        locationsProvider.selectedLocation = selectedLocationData;
+      });
+
+      //set value of isFavorite
+      checkIfLocationIsFavorite();
     }
 
     setState(() {
@@ -91,34 +159,73 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  checkIfLocationIsFavorite() {
+    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
+    locationsProvider.isFavorite = false;
+
+    int index = locationsProvider.favoriteLocations.indexWhere((e) => e.address == selectedLocationData!.address);
+
+    if (index > -1) {
+      setState(() {
+        locationsProvider.isFavorite = true;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (currentWeather != null) {
-      switch (currentWeather['weather'][0]['main'].toString().toLowerCase()) {
+    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context);
+    SystemProvider systemProvider = Provider.of<SystemProvider>(context);
+    if (selectedLocationData != null) {
+      switch (selectedLocationData!.weather!['weather'][0]['main'].toString().toLowerCase()) {
         case 'clear':
           setState(() {
             currentWeatherImage = Image.asset('assets/images/forest_sunny.png', fit: BoxFit.fill);
             backgroundColor = kSunny;
+            weatherIcon = Icon(
+              FontAwesomeIcons.cloudSun,
+              color: kSunny,
+              size: 50,
+            );
           });
           break;
         case 'clouds':
           setState(() {
             currentWeatherImage = Image.asset('assets/images/forest_cloudy.png', fit: BoxFit.fill);
             backgroundColor = kCloudy;
+            weatherIcon = Icon(
+              FontAwesomeIcons.cloud,
+              color: kCloudy,
+              size: 50,
+            );
           });
           break;
-        case 'rainy':
+        case 'rain':
         case 'thuderstorm':
         case 'drizzle':
+        case 'snow':
           setState(() {
-            currentWeatherImage = Image.asset('assets/images/forest_rainy.png', fit: BoxFit.fill);
+            currentWeatherImage = Image.asset(
+              'assets/images/forest_rainy.png',
+              fit: BoxFit.fill,
+            );
             backgroundColor = kRainy;
+            weatherIcon = Icon(
+              FontAwesomeIcons.cloudRain,
+              color: kRainy,
+              size: 50,
+            );
           });
           break;
         default:
           setState(() {
             currentWeatherImage = Image.asset('assets/images/forest_sunny.png', fit: BoxFit.fill);
             backgroundColor = kSunny;
+            weatherIcon = Icon(
+              FontAwesomeIcons.cloudSun,
+              color: kRainy,
+              size: 50,
+            );
           });
       }
     }
@@ -139,8 +246,17 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         : Scaffold(
             backgroundColor: Colors.white,
+            drawer: systemProvider.isOnline == true
+                ? DrawerControl(
+                    backgroundColor: backgroundColor,
+                    weatherIcon: weatherIcon,
+                    address: address,
+                    weatherDescription: selectedLocationData!.weather?['weather'][0]['main'].toString(),
+                  )
+                : null,
             appBar: AppBar(
               backgroundColor: backgroundColor,
+              iconTheme: IconThemeData(color: Colors.white),
               actions: [
                 showWeatherBySearch
                     ? GestureDetector(
@@ -171,7 +287,43 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                    : Container()
+                    : Container(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                  child: systemProvider.isOnline == false
+                      ? Center(
+                          child: TextControl(
+                            text: 'Last updated at: ${selectedLocationData!.timeOfLastUpdate}',
+                            color: Colors.white,
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: () async {
+                            setState(() {
+                              locationsProvider.isFavorite = true;
+                            });
+
+                            int index = locationsProvider.favoriteLocations.indexWhere((e) => e.address == selectedLocationData!.address);
+
+                            if (index == -1) {
+                              locationsProvider.favoriteLocations = [...locationsProvider.favoriteLocations, selectedLocationData!];
+                              storeFavoriteLocations(value: [...locationsProvider.favoriteLocations]);
+                              showSnackBar(context: context, message: 'Location added to favorites.', textColor: backgroundColor);
+                            } else {
+                              showSnackBar(context: context, message: 'Location is already favorited.', textColor: backgroundColor);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 20),
+                            child: Center(
+                              child: FaIcon(
+                                FontAwesomeIcons.solidHeart,
+                                color: locationsProvider.isFavorite ? Colors.red : Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
               ],
             ),
             body: Stack(
@@ -181,109 +333,94 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            SpinKitCircle(
+                              color: backgroundColor,
+                            ),
+                            SizedBox(
+                              height: 20,
+                            ),
                             TextControl(
                               text: 'Loading weather based on your ${showWeatherBySearch ? 'search' : 'current'} location...',
                               size: TextProps.normal,
-                              isBold: true,
-                            ),
-                            SpinKitCircle(
-                              color: backgroundColor,
                             ),
                           ],
                         ),
                       )
                     : SingleChildScrollView(
+                        physics: BouncingScrollPhysics(
+                          decelerationRate: ScrollDecelerationRate.fast,
+                        ),
                         child: Column(
                           children: [
-                            CurrentWeatherComponent(
-                              currentAddress: currentAddress,
-                              currentWeather: currentWeather,
+                            WeatherComponent(
+                              address: selectedLocationData!.address,
+                              currentWeather: selectedLocationData!.weather,
                               currentWeatherImage: currentWeatherImage,
                             ),
-                            showMap
-                                ? Container(
-                                    color: backgroundColor,
-                                    height: MediaQuery.of(context).size.height / 2,
-                                    child: GoogleMap(
-                                      zoomGesturesEnabled: true, 
-                                      initialCameraPosition: CameraPosition(
-                                        target: startLocation,
-                                        zoom: 14.0, 
-                                      ),
-                                      mapType: MapType.normal, 
-                                      onMapCreated: (controller) {
-                                        setState(() {
-                                          mapController = controller;
-                                        });
-                                      },
-                                    ),
-                                  )
-                                : ForecastComponent(
+                            ForecastComponent(
                                     backgroundColor: backgroundColor,
-                                    currentWeather: currentWeather,
+                              currentWeather: selectedLocationData!.weather,
                                     forecast: forecast,
                                   )
                           ],
                         ),
                       ),
-                Positioned(
-                  //search input bar
-                  child: InkWell(
-                    onTap: () async {
-                      var place = await PlacesAutocomplete.show(
-                          context: context,
-                          apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'],
-                          mode: Mode.overlay,
-                          types: [],
-                          strictbounds: false,
-                          location: Location(
-                            lat: -26.195246,
-                            lng: 28.034088,
-                          )
-                          );
+                systemProvider.isOnline == true
+                    ? Positioned(
+                        child: InkWell(
+                          onTap: () async {
+                            var place = await PlacesAutocomplete.show(
+                              context: context,
+                              apiKey: dotenv.env['API_KEY'],
+                              mode: Mode.overlay,
+                              strictbounds: false,
+                            );
 
-                      if (place != null) {
-                        setState(() {
-                          location = place.description.toString();
-                        });
+                            if (place != null) {
+                              setState(() {
+                                location = place.description.toString();
+                              });
 
-                        final plist = GoogleMapsPlaces(
-                          apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'],
-                          apiHeaders: await GoogleApiHeaders().getHeaders(),
-                        );
-                        String placeid = place.placeId ?? "0";
-                        final detail = await plist.getDetailsByPlaceId(placeid);
-                        final geometry = detail.result.geometry!;
-                        final lat = geometry.location.lat;
-                        final lang = geometry.location.lng;
-                        var newlatlang = LatLng(lat, lang);
-                        mapController?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: newlatlang, zoom: 17)));
-                        setState(() {
-                          loadingData = true;
-                          showWeatherBySearch = true;
-                          searchLatLng = LatLng(geometry.location.lat, geometry.location.lng);
-                        });
-                        init();
-                      }
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.all(15),
-                      child: Card(
-                        child: Container(
-                            padding: EdgeInsets.all(0),
-                            width: MediaQuery.of(context).size.width - 40,
-                            child: ListTile(
-                              title: Text(
-                                location,
-                                style: TextStyle(fontSize: 18),
+                              final plist = GoogleMapsPlaces(
+                                apiKey: dotenv.env['API_KEY'],
+                                apiHeaders: await GoogleApiHeaders().getHeaders(),
+                              );
+                              String placeid = place.placeId ?? "0";
+                              final detail = await plist.getDetailsByPlaceId(placeid);
+                              final geometry = detail.result.geometry!;
+                              final lat = geometry.location.lat;
+                              final lang = geometry.location.lng;
+                              var newlatlang = LatLng(lat, lang);
+                              mapController?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: newlatlang, zoom: 17)));
+                              setState(() {
+                                loadingData = true;
+                                showWeatherBySearch = true;
+                                searchLatLng = LatLng(geometry.location.lat, geometry.location.lng);
+                              });
+                              init();
+                            }
+                          },
+                          child: Padding(
+                            padding: EdgeInsets.all(15),
+                            child: Card(
+                              child: Container(
+                                padding: EdgeInsets.all(0),
+                                width: MediaQuery.of(context).size.width - 40,
+                                child: ListTile(
+                                  leading: Icon(Icons.search),
+                                  title: TextControl(
+                                    text: location,
+                                    size: TextProps.normal,
+                                    isBold: true,
+                                  ),
+                                  dense: true,
+                                ),
                               ),
-                              trailing: Icon(Icons.search),
-                              dense: true,
-                            )),
-                      ),
-                    ),
-                  ),
-                )
+                            ),
+                          ),
+                        ),
+                      )
+                    : Container()
               ],
             ),
           );
