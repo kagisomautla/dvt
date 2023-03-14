@@ -1,6 +1,8 @@
 import 'package:dvt/controls/text.dart';
+import 'package:dvt/providers/system.dart';
 import 'package:dvt/utils/functions.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ForecastComponent extends StatelessWidget {
   const ForecastComponent({
@@ -16,6 +18,8 @@ class ForecastComponent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SystemProvider systemProvider = Provider.of<SystemProvider>(context);
+    
     return Container(
       color: backgroundColor,
       height: MediaQuery.of(context).size.height / 2,
@@ -30,7 +34,7 @@ class ForecastComponent extends StatelessWidget {
                   Column(
                     children: [
                       TextControl(
-                        text: currentWeather['main']['temp_min'],
+                        text: '${currentWeather['main']['temp_min']}°',
                         color: Colors.white,
                         isBold: true,
                       ),
@@ -43,7 +47,7 @@ class ForecastComponent extends StatelessWidget {
                   Column(
                     children: [
                       TextControl(
-                        text: currentWeather['main']['temp'],
+                        text: '${currentWeather['main']['temp']}°',
                         color: Colors.white,
                         isBold: true,
                       ),
@@ -56,7 +60,7 @@ class ForecastComponent extends StatelessWidget {
                   Column(
                     children: [
                       TextControl(
-                        text: currentWeather['main']['temp_max'],
+                        text: '${currentWeather['main']['temp_max']}°',
                         color: Colors.white,
                         isBold: true,
                       ),
@@ -75,17 +79,24 @@ class ForecastComponent extends StatelessWidget {
             ],
           ),
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: forecast!.map((weather) {
-                String day = convertDateTime(date: weather['dt_txt'], convertToDaysOfTheWeek: true);
-                return DayOfTheWeek(
-                  icon: weather['weather'][0]['icon'],
-                  day: day,
-                  temperature: weather['main']['temp'],
-                );
-              }).toList(),
-            ),
+            child: systemProvider.isOnline == true
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: forecast!.map((weather) {
+                      String day = convertDateTime(date: weather['dt_txt'], convertToDaysOfTheWeek: true);
+                      return DayOfTheWeek(
+                        icon: weather['weather'][0]['icon'],
+                        day: day,
+                        temperature: weather['main']['temp'],
+                      );
+                    }).toList(),
+                  )
+                : Center(
+                    child: TextControl(
+                      text: 'You are currently offline.',
+                      color: Colors.white,
+                    ),
+                  ),
           ),
         ],
       ),
