@@ -11,13 +11,6 @@ Future<dynamic> getWeather({required BuildContext context, required String type,
   final apiHost = dotenv.env['CURRENT_WEATHER_URL'];
   final apiQueryParams = {'lat': lat, 'lon': lon, 'appid': apiKey, "units": "metric"};
 
-  final result = await InternetAddress.lookup('google.com');
-
-  if (result.isEmpty && result[0].rawAddress.isEmpty) {
-    showSnackBar(context: context, message: 'You are not connected to the internet. Please reconnect and try again.');
-    return;
-  }
-
   final uri = Uri.https(apiHost!, apiPath, apiQueryParams);
 
   final response = await http.get(uri);
