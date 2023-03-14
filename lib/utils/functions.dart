@@ -1,23 +1,37 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dvt/controls/text.dart';
+import 'package:dvt/models/locations.dart';
+import 'package:dvt/providers/system.dart';
 import 'package:dvt/utils/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-void showSnackBar({required BuildContext context, required String message}) {
+void showSnackBar({required BuildContext context, required String message, Color? textColor}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      backgroundColor: kSunny,
+      elevation: 2,
+      duration: Duration(seconds: 2),
+      shape: Border(top: BorderSide(color: Colors.white)),
       content: TextControl(
         text: message,
-        color: Colors.white,
+        color: textColor ?? Colors.white,
+        isBold: true,
       ),
     ),
   );
 }
 
-String convertDateTime({required String date, required bool convertToDaysOfTheWeek}) {
+String convertDateTime({
+  required String date,
+  required bool convertToDaysOfTheWeek,
+}) {
   DateTime dt = DateTime.parse(date);
   String formattedDate = '';
 
@@ -58,15 +72,15 @@ Future<dynamic> handleLocationPermission(BuildContext context) async {
   return true;
 }
 
-Future<dynamic> getCurrentPosition(BuildContext context) async {
-  print("... getCurrentPosition");
+Future<LatLng?> getCurrentPosition(BuildContext context) async {
+  // print("... getCurrentPosition");
 
   final hasPermission = await handleLocationPermission(context);
-  dynamic position;
+  LatLng? position;
 
   if (!hasPermission) return null;
-  await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high).then((dynamic pos) async {
-    position = pos;
+  await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high).then((Position pos) async {
+    position = LatLng(pos.latitude, pos.longitude);
   }).catchError((e) {
     debugPrint(e);
   });
@@ -80,7 +94,7 @@ Future<String?> getAddressFromLatLng(lat, lon) async {
   String? currentAddress;
   await placemarkFromCoordinates(lat, lon).then((List<Placemark> placemarks) {
     Placemark place = placemarks[0];
-    currentAddress = '${place.locality}, ${place.country}';
+    currentAddress = '${place.subLocality}, ${place.locality}, ${place.country}';
   }).catchError((e) {
     debugPrint(e);
     return e;
@@ -104,4 +118,20 @@ List<dynamic> extractDaysOfTheWeekData(List<dynamic> list) {
   } while (counter <= list.length);
 
   return extractedList;
+}
+
+isOnline({required BuildContext context}) async {
+  SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
+  List<InternetAddress> result = [];
+
+  result = await InternetAddress.lookup('google.com').onError((error, stackTrace) => result = []);
+
+  print('ONLINE STATUS: $result');
+
+  if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+    systemProvider.isOnline = true;
+  } else {
+    systemProvider.isOnline = false;
+    showSnackBar(context: context, message: 'You are not connected to the internet. Please reconnect and try again.');
+  }
 }
