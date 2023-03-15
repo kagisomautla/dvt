@@ -294,8 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: backgroundColor,
               iconTheme: IconThemeData(color: Colors.white),
               actions: [
-                showWeatherBySearch
-                    ? GestureDetector(
+                GestureDetector(
                         onTap: () {
                           setState(() {
                             showWeatherBySearch = false;
@@ -322,8 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                      )
-                    : Container(),
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: systemProvider.isOnline == false
