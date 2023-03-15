@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 class SystemProvider with ChangeNotifier {
-  bool? _isOnline;
-  bool? get isOnline => _isOnline;
-  set isOnline(bool? newVal) {
+  bool _isOnline = false;
+  bool get isOnline => _isOnline;
+  set isOnline(bool newVal) {
     _isOnline = newVal;
     notifyListeners();
   }
