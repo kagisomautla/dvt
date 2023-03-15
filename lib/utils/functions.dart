@@ -119,19 +119,3 @@ List<dynamic> extractDaysOfTheWeekData(List<dynamic> list) {
 
   return extractedList;
 }
-
-isOnline({required BuildContext context}) async {
-  SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
-  List<InternetAddress> result = [];
-
-  result = await InternetAddress.lookup('google.com').onError((error, stackTrace) => result = []);
-
-  print('ONLINE STATUS: $result');
-
-  if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-    systemProvider.isOnline = true;
-  } else {
-    systemProvider.isOnline = false;
-    showSnackBar(context: context, message: 'You are not connected to the internet. Please reconnect and try again.');
-  }
-}
