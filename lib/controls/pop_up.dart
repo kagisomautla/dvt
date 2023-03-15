@@ -16,15 +16,7 @@ Future<dynamic> popupControl({
       return AlertDialog(
         title: Column(
           children: [
-            Container(
-              height: 30,
-              margin: EdgeInsets.only(bottom: 10),
-              child: Icon(
-                FontAwesomeIcons.triangleExclamation,
-                color: Colors.orange,
-                size: 30,
-              ),
-            ),
+           
             TextControl(
               text: title,
               size: TextProps.md,
@@ -33,7 +25,7 @@ Future<dynamic> popupControl({
           ],
         ),
         backgroundColor: Colors.white,
-        contentPadding: EdgeInsets.all(40),
+        contentPadding: EdgeInsets.all(20),
         actionsPadding: EdgeInsets.all(0),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -63,7 +55,7 @@ Future<dynamic> popupControl({
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
-                    color: Colors.grey,
+                    color: Colors.black,
                     padding: EdgeInsets.all(20),
                     child: Center(
                       child: TextControl(
