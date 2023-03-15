@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dvt/apis/get_weather.dart';
 import 'package:dvt/controls/drawer.dart';
 import 'package:dvt/controls/text.dart';
 import 'package:dvt/helpers/local_storage/delete.dart';
 import 'package:dvt/helpers/local_storage/fetch.dart';
 import 'package:dvt/helpers/local_storage/send.dart';
+import 'package:dvt/models/connection.dart';
 import 'package:dvt/models/locations.dart';
 import 'package:dvt/providers/locations.dart';
 import 'package:dvt/providers/system.dart';
@@ -13,6 +16,7 @@ import 'package:dvt/screens/home/components/forecast.dart';
 import 'package:dvt/utils/constants.dart';
 import 'package:dvt/utils/functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_hoc081098/flutter_google_places_hoc081098.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -23,6 +27,7 @@ import 'package:google_maps_webservice/places.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as developer;
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -33,7 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? address;
   bool loadingHomePage = true;
   dynamic currentWeather;
-  List<dynamic>? forecast;
+  List<dynamic> forecast = [];
   Image? currentWeatherImage;
   Color? backgroundColor;
   bool isSearching = false;
@@ -45,31 +50,31 @@ class _HomeScreenState extends State<HomeScreen> {
   bool showWeatherBySearch = false;
   LatLng? searchLatLng;
   LatLng? position;
-  bool loadingData = false;
+  bool loadingData = true;
   SharedPreferences? sharedPreferences;
   List<dynamic> listOfFavoriteLocations = [];
   Icon? weatherIcon;
   LocationsModel? selectedLocationData;
 
+  Map source = {ConnectivityResult.none: false};
+  final NetworkConnectivity networkConnectivity = NetworkConnectivity.instance;
+  String string = '';
+
   @override
   void initState() {
-    isOnline(context: context);
-    init();
+    initScreen();
     super.initState();
   }
 
-  init() async {
-    // deleteAll();
+  initScreen() async {
+    initConnectivity(); //check connection first before execution.
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
     SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
-    dynamic favoriteLocationsFromStorage = await fetchFavoriteLocations();
-    dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
+
     DateTime now = DateTime.now();
     final String lastWeatherUpdate = DateFormat('MMM d, H:mm a').format(now);
 
-    print('favoriteLocationsFromStorage: $favoriteLocationsFromStorage');
-
-    //do this is user does not have a
+    // Do this if user is not connected to internet
     if (systemProvider.isOnline == false) {
       dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
       if (offlineWeatherFromStorage != null) {
@@ -90,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    // Do this if user is connected to the internet
     if (showWeatherBySearch) {
       //show weather by search location
       setState(() {
@@ -100,6 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
       position = await getCurrentPosition(context);
     }
 
+    // Fetch data favorite locations from storage and set to provider
+    dynamic favoriteLocationsFromStorage = await fetchFavoriteLocations();
     if (favoriteLocationsFromStorage != null) {
       setState(() {
         List<dynamic> decodedLocations = json.decode(favoriteLocationsFromStorage);
@@ -130,6 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
           showSnackBar(context: context, message: 'Failed to load weather... ${response.statusCode}.');
         }
       });
+
       await getWeather(
         context: context,
         type: 'forecast',
@@ -149,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
         locationsProvider.selectedLocation = selectedLocationData;
       });
 
-      //set value of isFavorite
+      //check if the current/search location is part of the favorites
       checkIfLocationIsFavorite();
     }
 
@@ -172,10 +181,37 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  initConnectivity() {
+    SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
+    networkConnectivity.initialise();
+    networkConnectivity.myStream.listen((src) {
+      setState(() {
+        source = src;
+      });
+      switch (source.keys.toList()[0]) {
+        case ConnectivityResult.mobile:
+        case ConnectivityResult.wifi:
+          setState(() {
+            systemProvider.isOnline = true;
+          });
+
+          break;
+        case ConnectivityResult.none:
+          setState(() {
+            systemProvider.isOnline = false;
+          });
+          break;
+        default:
+          string = 'Offline';
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context);
     SystemProvider systemProvider = Provider.of<SystemProvider>(context);
+    print('reload');
     if (selectedLocationData != null) {
       switch (selectedLocationData!.weather!['weather'][0]['main'].toString().toLowerCase()) {
         case 'clear':
@@ -266,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             loadingData = true;
                             location = "Search Location";
                           });
-                          init();
+                          initScreen();
                         },
                         child: Row(
                           children: [
@@ -324,6 +360,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                 ),
+                systemProvider.isOnline == false
+                    ? Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              loadingData = true;
+                              showWeatherBySearch = true;
+                              searchLatLng = LatLng(selectedLocationData!.location!.latitude, selectedLocationData!.location!.longitude);
+                            });
+                            initScreen();
+                          },
+                          child: Center(
+                            child: FaIcon(
+                              FontAwesomeIcons.arrowsRotate,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Container(),
               ],
             ),
             body: Stack(
@@ -358,10 +415,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               currentWeatherImage: currentWeatherImage,
                             ),
                             ForecastComponent(
-                                    backgroundColor: backgroundColor,
+                              backgroundColor: backgroundColor,
                               currentWeather: selectedLocationData!.weather,
-                                    forecast: forecast,
-                                  )
+                              forecast: forecast,
+                            )
                           ],
                         ),
                       ),
@@ -397,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 showWeatherBySearch = true;
                                 searchLatLng = LatLng(geometry.location.lat, geometry.location.lng);
                               });
-                              init();
+                              initScreen();
                             }
                           },
                           child: Padding(
