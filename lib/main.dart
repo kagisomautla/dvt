@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dvt/providers/locations.dart';
 import 'package:dvt/providers/system.dart';
 import 'package:dvt/screens/favorites/favorites.dart';
@@ -10,6 +11,7 @@ import 'package:provider/provider.dart';
 
 Future main() async {
   await dotenv.load(fileName: "assets/.env");
+  Connectivity().checkConnectivity();
   runApp(const WeatherApplication());
 }
 
