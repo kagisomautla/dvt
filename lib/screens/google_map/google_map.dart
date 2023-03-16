@@ -25,7 +25,6 @@ class _GoogleMapScreenState extends State<GoogleMapScreen> {
   int indexOfLocation = 1;
 
   init() {
-    print('init');
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
     numberOfFaveLocations = locationsProvider.favoriteLocations.length;
     setState(() {
@@ -54,25 +53,12 @@ class _GoogleMapScreenState extends State<GoogleMapScreen> {
       loading = false;
     });
   }
-
-  void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-  }
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    init();
-    super.initState();
-  }
-
+  
   handleGoToAndBack() {
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
 
-    print(locationsProvider.favoriteLocations.length);
 
     if (isGoTo) {
-      print(indexOfLocation);
       if (indexOfLocation > locationsProvider.favoriteLocations.length) {
         return;
       }
@@ -97,9 +83,18 @@ class _GoogleMapScreenState extends State<GoogleMapScreen> {
     );
   }
 
+  _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+  }
+
+  @override
+  void initState() {
+    init();
+    super.initState();
+  }
+ 
   @override
   void dispose() {
-    // TODO: implement dispose
     mapController.dispose();
     super.dispose();
   }

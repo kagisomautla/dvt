@@ -45,7 +45,6 @@ String convertDateTime({
 }
 
 Future<dynamic> handleLocationPermission(BuildContext context) async {
-  print("... handleLocationPermission");
   bool serviceEnabled;
   LocationPermission permission;
 
@@ -73,7 +72,6 @@ Future<dynamic> handleLocationPermission(BuildContext context) async {
 }
 
 Future<LatLng?> getCurrentPosition(BuildContext context) async {
-  // print("... getCurrentPosition");
 
   final hasPermission = await handleLocationPermission(context);
   LatLng? position;
@@ -88,11 +86,10 @@ Future<LatLng?> getCurrentPosition(BuildContext context) async {
   return position;
 }
 
-Future<String?> getAddressFromLatLng(lat, lon) async {
-  print("... getAddressFromLatLng");
+Future<String?> getAddressFromLatLng(lat, lng) async {
 
   String? currentAddress;
-  await placemarkFromCoordinates(lat, lon).then((List<Placemark> placemarks) {
+  await placemarkFromCoordinates(lat, lng).then((List<Placemark> placemarks) {
     Placemark place = placemarks[0];
     currentAddress = '${place.subLocality}, ${place.locality}, ${place.country}';
   }).catchError((e) {

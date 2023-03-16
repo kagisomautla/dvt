@@ -37,7 +37,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   init() async {
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
     dynamic favoriteLocationsFromStorage = await fetchFavoriteLocations();
-    print('favoriteLocationsFromStorage: $favoriteLocationsFromStorage');
 
     if (favoriteLocationsFromStorage.isNotEmpty) {
       setState(() {
@@ -48,16 +47,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   address: e['address'],
                 ))
             .toList();
-        print('decoded locations: $decodedData');
       });
-      print('favorite locations: ${locationsProvider.favoriteLocations}');
     }
 
     setState(() {
       loadingScreen = false;
     });
 
-    print('favorite locations: ${locationsProvider.favoriteLocations}');
   }
 
   @override
@@ -76,8 +72,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       onConfirm: () {
         locationsProvider.favoriteLocations = [];
         storeFavoriteLocations(value: []);
-        print(locationsProvider.favoriteLocations);
-        print('Yes clicked');
         Navigator.pop(context);
       },
     );
@@ -98,7 +92,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       lat: position.location!.latitude.toString(),
       lon: position.location!.longitude.toString(),
     ).then((response) {
-      print('responnse: $response');
       currentWeather = json.decode(response.body) as Map<String, dynamic>;
       setState(() {
         selectedLocationData = LocationsModel(location: position.location, address: position.address, weather: currentWeather);
@@ -115,7 +108,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Widget build(BuildContext context) {
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context);
     SystemProvider systemProvider = Provider.of<SystemProvider>(context);
-    print('reload');
 
     if (selectedLocationData != null) {
       switch (selectedLocationData!.weather!['weather'][0]['main'].toString().toLowerCase()) {

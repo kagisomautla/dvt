@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dvt/landing_page.dart';
 import 'package:dvt/providers/locations.dart';
 import 'package:dvt/providers/system.dart';
 import 'package:dvt/screens/favorites/favorites.dart';
@@ -36,7 +37,8 @@ class WeatherApplication extends StatelessWidget {
           primarySwatch: Colors.orange,
         ),
         routes: <String, WidgetBuilder>{
-          '/': (BuildContext context) => HomeScreen(),
+          '/': (BuildContext context) => LandingScreen(),
+          '/home': (BuildContext context) => HomeScreen(),
           '/favorites': (BuildContext context) => FavoritesScreen(),
           '/google_map': (BuildContext context) => GoogleMapScreen(),
         },

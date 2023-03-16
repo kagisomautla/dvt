@@ -36,7 +36,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? address;
-  bool loadingHomePage = true;
+  bool loadingHomeScreen = true;
   dynamic currentWeather;
   List<dynamic> forecast = [];
   Image? currentWeatherImage;
@@ -55,56 +55,82 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> listOfFavoriteLocations = [];
   Icon? weatherIcon;
   LocationsModel? selectedLocationData;
-
-  Map source = {ConnectivityResult.none: false};
+  Map source = {};
   final NetworkConnectivity networkConnectivity = NetworkConnectivity.instance;
   String string = '';
+  bool loadingOfflineWeather = false;
+  bool loadingOnlineWeather = false;
 
-  @override
-  void initState() {
-    initScreen();
-    super.initState();
+  checkIfLocationIsFavorite() {
+    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
+    locationsProvider.isFavorite = false;
+
+    int index = locationsProvider.favoriteLocations.indexWhere((e) => e.address == selectedLocationData?.address);
+
+    if (index > -1) {
+      setState(() {
+        locationsProvider.isFavorite = true;
+      });
+    }
   }
 
-  initScreen() async {
-    initConnectivity(); //check connection first before execution.
-    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
+  initConnectivity() {
     SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
+    networkConnectivity.initialise();
+    networkConnectivity.myStream.listen((src) {
+      print('src: $src');
+      setState(() {
+        source = src;
+      });
 
-    DateTime now = DateTime.now();
-    final String lastWeatherUpdate = DateFormat('MMM d, H:mm a').format(now);
-
-    // Do this if user is not connected to internet
-    if (systemProvider.isOnline == false) {
-      dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
-      if (offlineWeatherFromStorage != null) {
-        dynamic decodedData = json.decode(offlineWeatherFromStorage);
+      if (source['online'] == true) {
         setState(() {
-          selectedLocationData = LocationsModel(
-            location: LatLng(decodedData['location'][0], decodedData['location'][1]),
-            address: decodedData['address'],
-            weather: decodedData['weather'],
-            timeOfLastUpdate: decodedData['time_of_last_update'],
-          );
+          systemProvider.isOnline = true;
+        });
+      } else {
+        setState(() {
+          systemProvider.isOnline = false;
         });
       }
+    });
+  }
+
+  loadOfflineWeather() async {
+    setState(() {
+      loadingOfflineWeather = true;
+    });
+
+    dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
+    if (offlineWeatherFromStorage != null) {
+      dynamic decodedData = json.decode(offlineWeatherFromStorage);
       setState(() {
-        loadingHomePage = false;
-        loadingData = false;
+        selectedLocationData = LocationsModel(
+          location: LatLng(decodedData['location'][0], decodedData['location'][1]),
+          address: decodedData['address'],
+          weather: decodedData['weather'],
+          timeOfLastUpdate: decodedData['time_of_last_update'],
+          forecast: decodedData['forecast'],
+        );
       });
-      return;
     }
 
-    // Do this if user is connected to the internet
-    if (showWeatherBySearch) {
-      //show weather by search location
-      setState(() {
-        position = searchLatLng;
-      });
-    } else {
-      //show weather by current location
-      position = await getCurrentPosition(context);
-    }
+    setState(() {
+      loadingOfflineWeather = false;
+      loadingHomeScreen = false;
+    });
+
+    print('finished loading offline data');
+    print(selectedLocationData ?? selectedLocationData?.address);
+  }
+
+  loadOnlineWeather() async {
+    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
+    SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
+    DateTime now = DateTime.now();
+    final String lastWeatherUpdate = DateFormat('MMM d, H:mm a').format(now);
+    setState(() {
+      loadingOnlineWeather = true;
+    });
 
     // Fetch data favorite locations from storage and set to provider
     dynamic favoriteLocationsFromStorage = await fetchFavoriteLocations();
@@ -120,100 +146,100 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    if (position != null) {
-      address = await getAddressFromLatLng(position!.latitude, position!.longitude);
-      await getWeather(
-        context: context,
-        type: 'weather',
-        lat: position!.latitude.toString(),
-        lon: position!.longitude.toString(),
-      ).then((response) async {
-        if (response.statusCode == 200) {
-          currentWeather = json.decode(response.body) as Map<String, dynamic>;
-          setState(() {
-            selectedLocationData = LocationsModel(location: position, address: address, timeOfLastUpdate: lastWeatherUpdate, weather: currentWeather);
-          });
+    if (!systemProvider.isOnline) {
+      showSnackBar(context: context, message: 'You are not connected to the internet.');
+    } else {
+      print('you are now online');
+      // Do this if user is connected to the internet
+      if (showWeatherBySearch) {
+        //show weather by search location
+        setState(() {
+          position = searchLatLng;
+        });
+      } else {
+        //show weather by current location
+        position = await getCurrentPosition(context);
+      }
+
+      if (position != null) {
+        address = await getAddressFromLatLng(position!.latitude, position!.longitude);
+        await getWeather(
+          context: context,
+          type: 'weather',
+          lat: position!.latitude.toString(),
+          lon: position!.longitude.toString(),
+        ).then((response) async {
+          if (response.statusCode == 200) {
+            setState(() {
+              currentWeather = json.decode(response.body) as Map<String, dynamic>;
+            });
+          } else {
+            showSnackBar(context: context, message: 'Failed to load weather... ${response.statusCode}.');
+          }
+        });
+
+        await getWeather(
+          context: context,
+          type: 'forecast',
+          lat: position!.latitude.toString(),
+          lon: position!.longitude.toString(),
+        ).then((response) async {
+          if (response.statusCode == 200) {
+            dynamic body = json.decode(response.body) as Map<String, dynamic>;
+            List<dynamic> listOfForecast = body['list'];
+            setState(() {
+              forecast = extractDaysOfTheWeekData(listOfForecast);
+            });
+          } else {
+            showSnackBar(context: context, message: 'Failed to load forecast... ${response.statusCode}.');
+          }
+        });
+
+        setState(() {
+          selectedLocationData = LocationsModel(
+            location: position,
+            address: address,
+            timeOfLastUpdate: lastWeatherUpdate,
+            weather: currentWeather,
+            forecast: forecast,
+          );
+
           storeOfflineWeather(value: selectedLocationData!);
-        } else {
-          showSnackBar(context: context, message: 'Failed to load weather... ${response.statusCode}.');
-        }
-      });
+          locationsProvider.selectedLocation = selectedLocationData;
+        });
 
-      await getWeather(
-        context: context,
-        type: 'forecast',
-        lat: position!.latitude.toString(),
-        lon: position!.longitude.toString(),
-      ).then((response) async {
-        if (response.statusCode == 200) {
-          dynamic body = json.decode(response.body) as Map<String, dynamic>;
-          List<dynamic> listOfForecast = body['list'];
-          forecast = extractDaysOfTheWeekData(listOfForecast);
-        } else {
-          showSnackBar(context: context, message: 'Failed to load forecast... ${response.statusCode}.');
-        }
-      });
-
-      setState(() {
-        locationsProvider.selectedLocation = selectedLocationData;
-      });
-
-      //check if the current/search location is part of the favorites
-      checkIfLocationIsFavorite();
+        //check if the current/search location is part of the favorites
+        checkIfLocationIsFavorite();
+      }
     }
 
     setState(() {
-      loadingHomePage = false;
-      loadingData = false;
+      loadingOnlineWeather = false;
+      loadingOfflineWeather = false;
     });
+
+    print('finished loading online data');
+    print(selectedLocationData ?? selectedLocationData?.weather?.values);
   }
 
-  checkIfLocationIsFavorite() {
-    LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
-    locationsProvider.isFavorite = false;
-
-    int index = locationsProvider.favoriteLocations.indexWhere((e) => e.address == selectedLocationData!.address);
-
-    if (index > -1) {
-      setState(() {
-        locationsProvider.isFavorite = true;
-      });
-    }
+  initScreen() async {
+    await initConnectivity();
+    await loadOfflineWeather();
+    await loadOnlineWeather();
   }
 
-  initConnectivity() {
-    SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
-    networkConnectivity.initialise();
-    networkConnectivity.myStream.listen((src) {
-      setState(() {
-        source = src;
-      });
-      switch (source.keys.toList()[0]) {
-        case ConnectivityResult.mobile:
-        case ConnectivityResult.wifi:
-          setState(() {
-            systemProvider.isOnline = true;
-          });
-
-          break;
-        case ConnectivityResult.none:
-          setState(() {
-            systemProvider.isOnline = false;
-          });
-          break;
-        default:
-          string = 'Offline';
-      }
-    });
+  @override
+  void initState() {
+    initScreen();
+    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context);
     SystemProvider systemProvider = Provider.of<SystemProvider>(context);
-    print('reload');
     if (selectedLocationData != null) {
-      switch (selectedLocationData!.weather!['weather'][0]['main'].toString().toLowerCase()) {
+      switch (selectedLocationData?.weather!['weather'][0]['main'].toString().toLowerCase()) {
         case 'clear':
           setState(() {
             currentWeatherImage = Image.asset('assets/images/forest_sunny.png', fit: BoxFit.fill);
@@ -265,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
       }
     }
-    return loadingHomePage == true
+    return loadingHomeScreen == true
         ? Scaffold(
             backgroundColor: Colors.white,
             body: Center(
@@ -287,47 +313,51 @@ class _HomeScreenState extends State<HomeScreen> {
                     backgroundColor: backgroundColor,
                     weatherIcon: weatherIcon,
                     address: address,
-                    weatherDescription: selectedLocationData!.weather?['weather'][0]['main'].toString(),
+                    weatherDescription: selectedLocationData?.weather?['weather'][0]['main'].toString(),
                   )
                 : null,
             appBar: AppBar(
-              backgroundColor: backgroundColor,
+              backgroundColor: backgroundColor ?? kSunny,
               iconTheme: IconThemeData(color: Colors.white),
               actions: [
                 GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            showWeatherBySearch = false;
-                            loadingData = true;
-                            location = "Search Location";
-                          });
-                          initScreen();
-                        },
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.refresh,
-                              color: Colors.white,
-                            ),
-                            SizedBox(
-                              width: 5,
-                            ),
-                            TextControl(
-                              text: 'Use my location',
-                              color: Colors.white,
-                            ),
-                            SizedBox(
-                              width: 10,
-                            ),
-                          ],
-                        ),
+                  onTap: () {
+                    if (systemProvider.isOnline) {
+                      setState(() {
+                        showWeatherBySearch = false;
+                        loadingOnlineWeather = true;
+                        location = "Search Location";
+                      });
+                      loadOnlineWeather();
+                    } else {
+                      showSnackBar(context: context, message: 'You are not connected to the internet');
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.refresh,
+                        color: Colors.white,
+                      ),
+                      SizedBox(
+                        width: 5,
+                      ),
+                      TextControl(
+                        text: 'Use my location',
+                        color: Colors.white,
+                      ),
+                      SizedBox(
+                        width: 10,
+                      ),
+                    ],
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: systemProvider.isOnline == false
                       ? Center(
                           child: TextControl(
-                            text: 'Last updated at: ${selectedLocationData!.timeOfLastUpdate}',
+                            text: 'Last updated at: ${selectedLocationData?.timeOfLastUpdate ?? '-'}',
                             color: Colors.white,
                           ),
                         )
@@ -337,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               locationsProvider.isFavorite = true;
                             });
 
-                            int index = locationsProvider.favoriteLocations.indexWhere((e) => e.address == selectedLocationData!.address);
+                            int index = locationsProvider.favoriteLocations.indexWhere((e) => e.address == selectedLocationData?.address);
 
                             if (index == -1) {
                               locationsProvider.favoriteLocations = [...locationsProvider.favoriteLocations, selectedLocationData!];
@@ -358,68 +388,56 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                 ),
-                systemProvider.isOnline == false
-                    ? Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              loadingData = true;
-                              showWeatherBySearch = true;
-                              searchLatLng = LatLng(selectedLocationData!.location!.latitude, selectedLocationData!.location!.longitude);
-                            });
-                            initScreen();
-                          },
-                          child: Center(
-                            child: FaIcon(
-                              FontAwesomeIcons.arrowsRotate,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Container(),
               ],
             ),
             body: Stack(
               children: [
-                loadingData
+                loadingOfflineWeather
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SpinKitCircle(
-                              color: backgroundColor,
-                            ),
+                            selectedLocationData == null && !systemProvider.isOnline
+                                ? Container()
+                                : SpinKitCircle(
+                                    color: backgroundColor ?? kSunny,
+                                  ),
                             SizedBox(
                               height: 20,
                             ),
                             TextControl(
-                              text: 'Loading weather based on your ${showWeatherBySearch ? 'search' : 'current'} location...',
+                              text: selectedLocationData == null && !systemProvider.isOnline ? 'You are currently offline and could not find last updated weather.' : 'Loading weather based on your ${showWeatherBySearch ? 'search' : 'current'} location...',
                               size: TextProps.normal,
                             ),
                           ],
                         ),
                       )
-                    : SingleChildScrollView(
-                        physics: BouncingScrollPhysics(
-                          decelerationRate: ScrollDecelerationRate.fast,
-                        ),
-                        child: Column(
-                          children: [
-                            WeatherComponent(
-                              address: selectedLocationData!.address,
-                              currentWeather: selectedLocationData!.weather,
-                              currentWeatherImage: currentWeatherImage,
+                    : selectedLocationData != null
+                        ? SingleChildScrollView(
+                            physics: BouncingScrollPhysics(
+                              decelerationRate: ScrollDecelerationRate.fast,
                             ),
-                            ForecastComponent(
-                              backgroundColor: backgroundColor,
-                              currentWeather: selectedLocationData!.weather,
-                              forecast: forecast,
-                            )
-                          ],
-                        ),
-                      ),
+                            child: Column(
+                              children: [
+                                WeatherComponent(
+                                  address: selectedLocationData?.address,
+                                  currentWeather: selectedLocationData?.weather,
+                                  currentWeatherImage: currentWeatherImage,
+                                ),
+                                ForecastComponent(
+                                  backgroundColor: backgroundColor,
+                                  currentWeather: selectedLocationData?.weather,
+                                  forecast: selectedLocationData?.forecast,
+                                )
+                              ],
+                            ),
+                          )
+                        : Center(
+                            child: TextControl(
+                              text: 'Could not find last updated weather.',
+                              size: TextProps.normal,
+                            ),
+                          ),
                 systemProvider.isOnline == true
                     ? Positioned(
                         child: InkWell(

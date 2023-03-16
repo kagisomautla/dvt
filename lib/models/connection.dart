@@ -14,7 +14,6 @@ class NetworkConnectivity {
     ConnectivityResult result = await _connectivity.checkConnectivity();
     _checkStatus(result);
     _connectivity.onConnectivityChanged.listen((result) {
-      print('status result: $result');
       _checkStatus(result);
     });
   }
@@ -23,13 +22,11 @@ class NetworkConnectivity {
     bool isOnline = false;
     try {
       final result = await InternetAddress.lookup('example.com');
-      print('result of example.com: $result');
       isOnline = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } on SocketException catch (_) {
       isOnline = false;
     }
-    print('is online: $isOnline');
-    _controller.sink.add({result: isOnline});
+    _controller.sink.add({'online': isOnline});
   }
 
   void disposeStream() => _controller.close();

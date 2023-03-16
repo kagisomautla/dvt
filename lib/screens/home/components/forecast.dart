@@ -19,7 +19,7 @@ class ForecastComponent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     SystemProvider systemProvider = Provider.of<SystemProvider>(context);
-    
+
     return Container(
       color: backgroundColor,
       height: MediaQuery.of(context).size.height / 2,
@@ -79,25 +79,17 @@ class ForecastComponent extends StatelessWidget {
             ],
           ),
           Expanded(
-            child: systemProvider.isOnline == true
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: forecast!.map((weather) {
-                      String day = convertDateTime(date: weather['dt_txt'], convertToDaysOfTheWeek: true);
-                      return DayOfTheWeek(
-                        icon: weather['weather'][0]['icon'],
-                        day: day,
-                        temperature: weather['main']['temp'],
-                      );
-                    }).toList(),
-                  )
-                : Center(
-                    child: TextControl(
-                      text: 'You are currently offline.',
-                      color: Colors.white,
-                    ),
-                  ),
-          ),
+              child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: forecast!.map((weather) {
+              String day = convertDateTime(date: weather['dt_txt'], convertToDaysOfTheWeek: true);
+              return DayOfTheWeek(
+                icon: weather['weather'][0]['icon'],
+                day: day,
+                temperature: weather['main']['temp'],
+              );
+            }).toList(),
+          )),
         ],
       ),
     );
@@ -123,6 +115,7 @@ class DayOfTheWeek extends StatefulWidget {
 class _DayOfTheWeekState extends State<DayOfTheWeek> {
   @override
   Widget build(BuildContext context) {
+    SystemProvider systemProvider = Provider.of<SystemProvider>(context);
     return Row(
       children: [
         Expanded(
@@ -131,11 +124,16 @@ class _DayOfTheWeekState extends State<DayOfTheWeek> {
             color: Colors.white,
           ),
         ),
-        Image.network(
+        systemProvider.isOnline == true
+            ? Image.network(
           'https://openweathermap.org/img/wn/${widget.icon}@2x.png',
           height: 50,
           width: 50,
-        ),
+              )
+            : TextControl(
+                text: '-',
+                color: Colors.white,
+              ),
         Expanded(
           child: Align(
             alignment: Alignment.centerRight,
