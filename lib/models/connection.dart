@@ -21,8 +21,13 @@ class NetworkConnectivity {
   void _checkStatus(ConnectivityResult result) async {
     bool isOnline = false;
     try {
-      final result = await InternetAddress.lookup('example.com');
-      isOnline = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+      if (result != ConnectivityResult.none) {
+        await InternetAddress.lookup('example.com').then((result) {
+          isOnline = result.isNotEmpty && result[0].rawAddress.isNotEmpty ? true : false;
+        });
+      } else {
+        isOnline = false;
+      }
     } on SocketException catch (_) {
       isOnline = false;
     }

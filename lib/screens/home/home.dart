@@ -74,18 +74,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  initConnectivity() {
+  initConnectivity() async {
     SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
     networkConnectivity.initialise();
-    networkConnectivity.myStream.listen((src) {
+    networkConnectivity.myStream.listen((src) async {
       setState(() {
         source = src;
       });
+      print(src);
 
       if (source['online'] == true) {
         setState(() {
           systemProvider.isOnline = true;
         });
+        await loadOnlineWeather();
       } else {
         setState(() {
           systemProvider.isOnline = false;
@@ -119,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   loadOnlineWeather() async {
+    print('loading online...');
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
     SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
     DateTime now = DateTime.now();
@@ -214,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   initScreen() async {
+    print('init');
     await initConnectivity();
     await loadOfflineWeather();
     await loadOnlineWeather();
@@ -310,6 +314,23 @@ class _HomeScreenState extends State<HomeScreen> {
             appBar: AppBar(
               backgroundColor: backgroundColor ?? kSunny,
               iconTheme: IconThemeData(color: Colors.white),
+              title: loadingOnlineWeather == true
+                  ? Row(
+                      children: [
+                        SpinKitCircle(
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(
+                          width: 2,
+                        ),
+                        TextControl(
+                          text: 'updating...',
+                          color: Colors.white,
+                        )
+                      ],
+                    )
+                  : Container(),
               actions: [
                 GestureDetector(
                   onTap: () {
@@ -484,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       )
-                    : Container()
+                    : Container(),
               ],
             ),
           );

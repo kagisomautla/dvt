@@ -396,7 +396,12 @@ class ShowWeatherComponent extends StatelessWidget {
             children: [
               icon,
               SizedBox(
-                height: 40,
+                height: 20,
+              ),
+              TextControl(
+                text: "${selectedLocationData?.weather?['weather'][0]['main']}",
+                color: Colors.white,
+                size: TextProps.md,
               ),
               TextControl(
                 text: "${selectedLocationData?.weather?['main']['temp']}°",
