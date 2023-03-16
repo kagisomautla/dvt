@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 
 Future main() async {
   await dotenv.load(fileName: "assets/.env");
-  Connectivity().checkConnectivity();
   runApp(const WeatherApplication());
 }
 

@@ -98,7 +98,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       loadingOfflineWeather = true;
     });
-
     dynamic offlineWeatherFromStorage = await fetchOfflineWeather();
     if (offlineWeatherFromStorage != null) {
       dynamic decodedData = json.decode(offlineWeatherFromStorage);
@@ -117,7 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
       loadingOfflineWeather = false;
       loadingHomeScreen = false;
     });
-
   }
 
   loadOnlineWeather() async {
@@ -213,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> {
       loadingOnlineWeather = false;
       loadingOfflineWeather = false;
     });
-
   }
 
   initScreen() async {
@@ -302,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         : Scaffold(
             backgroundColor: Colors.white,
-            drawer: systemProvider.isOnline == true
+            drawer: systemProvider.isOnline == true && selectedLocationData != null
                 ? DrawerControl(
                     backgroundColor: backgroundColor,
                     weatherIcon: weatherIcon,

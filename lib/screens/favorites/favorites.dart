@@ -38,7 +38,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     LocationsProvider locationsProvider = Provider.of<LocationsProvider>(context, listen: false);
     dynamic favoriteLocationsFromStorage = await fetchFavoriteLocations();
 
-    if (favoriteLocationsFromStorage.isNotEmpty) {
+    if (favoriteLocationsFromStorage != null) {
       setState(() {
         List<dynamic> decodedData = json.decode(favoriteLocationsFromStorage);
         locationsProvider.favoriteLocations = decodedData
@@ -183,7 +183,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           isBold: true,
         ),
         actions: [
-          GestureDetector(
+          locationsProvider.favoriteLocations.isEmpty
+              ? Container()
+              : GestureDetector(
             onTap: () => handleClearAll(),
             child: Padding(
               padding: EdgeInsets.only(right: 20.0),

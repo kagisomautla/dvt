@@ -77,7 +77,7 @@ class DrawerControl extends StatelessWidget {
                       //     ),
                       //   ),
                       // ),
-                      weatherIcon!,
+                      weatherIcon ?? Container(),
                       SizedBox(
                         width: 30,
                       ),

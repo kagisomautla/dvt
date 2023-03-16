@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:dvt/utils/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/src/widgets/framework.dart';
-import 'package:flutter/src/widgets/placeholder.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
