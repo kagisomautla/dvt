@@ -78,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
     SystemProvider systemProvider = Provider.of<SystemProvider>(context, listen: false);
     networkConnectivity.initialise();
     networkConnectivity.myStream.listen((src) {
-      print('src: $src');
       setState(() {
         source = src;
       });
@@ -119,8 +118,6 @@ class _HomeScreenState extends State<HomeScreen> {
       loadingHomeScreen = false;
     });
 
-    print('finished loading offline data');
-    print(selectedLocationData ?? selectedLocationData?.address);
   }
 
   loadOnlineWeather() async {
@@ -149,7 +146,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!systemProvider.isOnline) {
       showSnackBar(context: context, message: 'You are not connected to the internet.');
     } else {
-      print('you are now online');
       // Do this if user is connected to the internet
       if (showWeatherBySearch) {
         //show weather by search location
@@ -218,8 +214,6 @@ class _HomeScreenState extends State<HomeScreen> {
       loadingOfflineWeather = false;
     });
 
-    print('finished loading online data');
-    print(selectedLocationData ?? selectedLocationData?.weather?.values);
   }
 
   initScreen() async {

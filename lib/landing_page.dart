@@ -16,7 +16,6 @@ class _LandingScreenState extends State<LandingScreen> {
   init() {
     int seconds = 1;
     Timer.periodic(Duration(seconds: 1), (timer) {
-      print(seconds);
       setState(() {
         if (seconds > 0) {
           seconds--;
