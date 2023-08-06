@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
-        android:label="Weather24"
+        android:label="Global Weather24"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <meta-data
